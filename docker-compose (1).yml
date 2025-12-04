@@ -1,0 +1,91 @@
+services:
+  neko:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: minecraft-neko
+    restart: unless-stopped
+    shm_size: "4gb"
+    
+    # GPU access (if you have Nvidia GPU)
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    
+    ports:
+      - "8080:8080"
+      - "50000-50100:50000-50100/udp"
+    
+    environment:
+      # ========== CHANGE THESE ==========
+      NEKO_MEMBER_MULTIUSER_ADMIN_PASSWORD: "your-admin-password"
+      NEKO_MEMBER_MULTIUSER_USER_PASSWORD: "your-user-password"
+      
+      # Your Tailscale IP (run: tailscale ip -4)
+      # Or your local IP if using Cloudflare Tunnel
+      NEKO_WEBRTC_NAT1TO1: "100.64.x.x"
+      # ==================================
+      
+      # ========== GAMING OPTIMIZATIONS ==========
+      
+      # 1080p @ 60fps
+      NEKO_DESKTOP_SCREEN: "1920x1080@60"
+      
+      # High bitrate - your home upload is the limit
+      NEKO_CAPTURE_VIDEO_BITRATE: "8000"
+      
+      # H.264 with hardware encoding if available
+      NEKO_CAPTURE_VIDEO_CODEC: "h264"
+      
+      # Enable NVENC if you have Nvidia GPU
+      # Comment out if no GPU
+      NEKO_CAPTURE_VIDEO_HWENC: "nvenc"
+      
+      # 60 FPS
+      NEKO_CAPTURE_VIDEO_MAX_FPS: "60"
+      
+      # Immediate control
+      NEKO_SESSION_IMPLICIT_CONTROL: "true"
+      
+      # ==============================================
+      
+      # WebRTC
+      NEKO_WEBRTC_EPR: "50000-50100"
+      NEKO_WEBRTC_ICELITE: "true"
+      
+      # File transfer
+      NEKO_SESSION_FILE_TRANSFER_ENABLED: "true"
+      NEKO_SESSION_FILE_TRANSFER_PATH: "/home/neko/Downloads"
+      
+      # Unlocked
+      NEKO_SESSION_CONTROL_LOCKED: "false"
+      
+    volumes:
+      - minecraft-data:/home/neko/.minecraft
+      - downloads:/home/neko/Downloads
+    
+    # Only needed for Nvidia GPU
+    runtime: nvidia
+
+  nginx:
+    image: nginx:alpine
+    container_name: minecraft-nginx
+    restart: unless-stopped
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      - neko
+
+volumes:
+  minecraft-data:
+    name: minecraft-data
+  downloads:
+    name: minecraft-downloads
